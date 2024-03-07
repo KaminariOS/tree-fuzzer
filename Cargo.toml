@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "crates/tree-fuzzer"
+, "crates/tree-fuzzer-json"]
+
+exclude = [ "./crates/tree-fuzzer-json/fuzz" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+resolver = "2"
+

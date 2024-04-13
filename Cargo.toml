@@ -1,7 +1,12 @@
 [workspace]
 members = [
-    "crates/tree-fuzzer"
-, "crates/tree-fuzzer-json"]
+    "crates/tree-fuzzer",
+    "crates/tree-fuzzer-json", 
+    "crates/tree-fuzzer-json-splicer", 
+    "crates/tree-fuzzer-rust", 
+    "crates/tree-fuzzer-json-nautilus", 
+    "crates/tree-sifu",
+]
 
 exclude = [ "./crates/tree-fuzzer-json/fuzz" ]
 

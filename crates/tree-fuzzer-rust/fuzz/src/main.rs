@@ -4,6 +4,7 @@
 #![feature(read_buf)]
 #![feature(core_io_borrowed_buf)]
 
+use tree_fuzzer::fuzz_target;
 /// rustc_driver::Callbacks object that stops before codegen.
 pub struct FuzzCallbacks;
 
@@ -85,10 +86,10 @@ impl rustc_codegen_ssa::traits::CodegenBackend for NullCodegenBackend {
         _ongoing_codegen: Box<dyn core::any::Any>,
         _sess: &rustc_session::Session,
         _outputs: &rustc_session::config::OutputFilenames,
-    ) -> Result<(rustc_codegen_ssa::CodegenResults,
+    ) -> (rustc_codegen_ssa::CodegenResults,
                  rustc_data_structures::fx::FxIndexMap<rustc_middle::dep_graph::WorkProductId,
-                                                      rustc_middle::dep_graph::WorkProduct>),
-                rustc_errors::ErrorGuaranteed> {
+                                                      rustc_middle::dep_graph::WorkProduct>)
+                 {
         unimplemented!()
     }
 
@@ -124,7 +125,7 @@ pub fn main_fuzz(input: Vec<u8>) {
         run_compiler.set_make_codegen_backend(
             Some(Box::new(|_| {Box::new(NullCodegenBackend)})));
         run_compiler.run()
-    }).and_then(|result| result);
+    }).and_then(|result| Ok(result));
 }
 
 fuzz_target!(|data: &[u8]| {

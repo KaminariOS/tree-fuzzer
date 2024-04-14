@@ -10,16 +10,16 @@ fi
 rustup override set nightly
 
 # - enable coverage instrumentation
-# export RUSTFLAGS="$RUSTFLAGS -C passes=sancov-module -C llvm-args=-sanitizer-coverage-level=4"
-# export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-trace-compares"
-# export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-inline-8bit-counters"
-# export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-pc-table"
+export RUSTFLAGS="$RUSTFLAGS -C passes=sancov-module -C llvm-args=-sanitizer-coverage-level=4"
+export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-trace-compares"
+export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-inline-8bit-counters"
+export RUSTFLAGS="$RUSTFLAGS -C llvm-args=-sanitizer-coverage-pc-table"
 
 # - enable compilation of rustc_private crates
-# export RUSTFLAGS="$RUSTFLAGS -Z force-unstable-if-unmarked"
+export RUSTFLAGS="$RUSTFLAGS -Z force-unstable-if-unmarked"
 
 # - enable debug assertions
-# export RUSTFLAGS="$RUSTFLAGS -C debug-assertions=on"
+export RUSTFLAGS="$RUSTFLAGS -C debug-assertions=on"
 
 #export RUSTFLAGS="$RUSTFLAGS -Z sanitizer=address"
 
@@ -76,8 +76,8 @@ export RUSTC_INSTALL_BINDIR=/tmp/rustc_install_bindir
 
 # The --target flag is important because it prevents build.rs scripts from being built with
 # the above-specified RUSTFLAGS.
-cargo run --release --verbose --target $TARGET 
-# --bin "fuzz_target" -- -artifact_prefix=artifacts/ ${@:1} `pwd`/corpus `pwd`/seeds
+cargo run --release --verbose --target $TARGET
+# --bin "fuzz_target" -- -print_coverage=1 -artifact_prefix=artifacts/ ${@:1} `pwd`/corpus `pwd`/seeds
 
 # An invocation like this can minimize a crash:
 #cargo run --release --verbose --target $TARGET --bin "fuzz_target" -- -minimize_crash=1 ${@:1}

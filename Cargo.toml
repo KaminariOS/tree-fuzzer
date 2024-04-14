@@ -6,6 +6,7 @@ members = [
     "crates/tree-fuzzer-rust", 
     "crates/tree-fuzzer-json-nautilus", 
     "crates/tree-sifu",
+    "crates/tree-fuzzer-rust-splicer",
 ]
 
 exclude = [ "./crates/tree-fuzzer-json/fuzz" ]

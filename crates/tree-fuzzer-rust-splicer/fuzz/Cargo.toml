@@ -1,0 +1,49 @@
+[workspace]
+
+[package]
+name = "test_rustc"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+
+[dependencies]
+# libfuzzer-sys = "0.4"
+tree-fuzzer = { path = "../../tree-fuzzer/" }
+
+# [lib]
+# crate-type = [ "staticlib" ]
+# name = "test_serde"
+# path = "fuzz_targets/fuzz_target_1.rs"
+# test = false
+# doc = false
+# bench = false
+
+[dependencies.rustc_data_structures]
+path = "./rust/compiler/rustc_data_structures"
+
+[dependencies.rustc_errors]
+path = "./rust/compiler/rustc_errors"
+
+[dependencies.rustc_metadata]
+path = "./rust/compiler/rustc_metadata"
+
+[dependencies.rustc_middle]
+path = "./rust/compiler/rustc_middle"
+
+[dependencies.rustc_driver]
+path = "./rust/compiler/rustc_driver"
+
+[dependencies.rustc_session]
+path = "./rust/compiler/rustc_session"
+
+[dependencies.rustc_span]
+path = "./rust/compiler/rustc_span"
+
+[dependencies.rustc_interface]
+path = "./rust/compiler/rustc_interface"
+
+[dependencies.rustc_codegen_ssa]
+path = "./rust/compiler/rustc_codegen_ssa"
+
+

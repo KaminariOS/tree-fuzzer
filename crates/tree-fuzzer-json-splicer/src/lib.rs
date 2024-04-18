@@ -5,8 +5,10 @@
 // use mimalloc::MiMalloc;
 // #[global_allocator]
 // static GLOBAL: MiMalloc = MiMalloc;
+mod trees;
+mod node_types;
 
-use std::{env, path::PathBuf};
+use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use libafl::{
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
@@ -24,13 +26,15 @@ use libafl::{
     observers::TimeObserver,
     schedulers::{IndexesLenTimeMinimizerScheduler, QueueScheduler},
     stages::{ShadowTracingStage, StdMutationalStage},
-    state::{HasCorpus, StdState},
+    state::{HasCorpus, HasMetadata, StdState},
     Error,
 };
 use libafl_bolts::{current_nanos, rands::StdRand, tuples::tuple_list, AsSlice};
 use libafl_targets::{
-    libfuzzer_initialize, libfuzzer_test_one_input, counters_maps_observer, CmpLogObserver,
+    libfuzzer_initialize, libfuzzer_test_one_input, std_edges_map_observer, CmpLogObserver,
 };
+
+use crate::trees::{parse, TestTree, TreeContext, TreeFeedback, TreeMetaData, TreeSpliceMutator};
 
 #[no_mangle]
 pub extern "C" fn libafl_main() {
@@ -55,7 +59,9 @@ pub extern "C" fn libafl_main() {
 fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Result<(), Error> {
     // 'While the stats are state, they are usually used in the broker - which is likely never restarted
     let monitor = MultiMonitor::new(|s| println!("Monitor: {s}"));
+    let context = TreeContext::new(tree_sitter_json::language(), tree_sitter_json::NODE_TYPES);
 
+    println!("Restart mgr");
     // The restarting state will spawn the same process again as child, then restarted it each time it crashes.
     let (state, mut restarting_mgr) =
         match setup_restarting_mgr_std(monitor, broker_port, EventConfig::from_name("default")) {
@@ -72,7 +78,7 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     println!("state restart");
     // Create an observation channel using the coverage map
     // We don't use the hitcounts (see the Cargo.toml, we use pcguard_edges)
-    let edges_observer = unsafe { counters_maps_observer("edges") };
+    let edges_observer = unsafe { std_edges_map_observer("edges") };
 
     // Create an observation channel to keep track of the execution time
     let time_observer = TimeObserver::new("time");
@@ -85,7 +91,8 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
         // New maximization map feedback linked to the edges observer and the feedback state
         MaxMapFeedback::tracking(&edges_observer, true, false),
         // Time feedback, this one does not need a feedback state
-        TimeFeedback::with_observer(&time_observer)
+        TimeFeedback::with_observer(&time_observer),
+        TreeFeedback::new(&context)
     );
 
     // A feedback to choose if an input is a solution or not
@@ -119,24 +126,48 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
     // The wrapped harness function, calling out to the LLVM-style harness
-    let mut harness = |input: &BytesInput| {
-        let target = input.target_bytes();
-        let buf = target.as_slice();
+    let mut harness = |input: &TestTree| {
+        let buf = input.0.as_slice();
         libfuzzer_test_one_input(buf);
         ExitKind::Ok
     };
 
+    if state
+            .metadata_map()
+            .get::<TreeMetaData>()
+            .is_none()
+        {
+            let mut files = HashMap::new();
+            // TODO error messages
+            for entry in fs::read_dir(&corpus_dirs[0]).unwrap()
+            {
+                let entry = entry?;
+                let path = entry.path();
+                if let Ok(s) = fs::read_to_string(&path) {
+                    // println!("Parsing tree {path:?}");
+                    let tree = parse(tree_sitter_json::language(), &s);
+                    files.insert(String::from(path.to_string_lossy()), (s.into_bytes(), tree));
+                }
+            }
+            println!("Loading initial chunks: {}", files.len());
+            state.add_metadata(TreeMetaData::new(tree_sitter_json::NODE_TYPES, files));
+        }
+
+    println!("Corpus loaded");
     // Create the executor for an in-process function with just one observer for edge coverage
-    let mut executor = ShadowExecutor::new(
+    let mut executor = 
+        // ShadowExecutor::new(
         InProcessExecutor::new(
             &mut harness,
             tuple_list!(edges_observer, time_observer),
             &mut fuzzer,
             &mut state,
             &mut restarting_mgr,
-        )?,
-        tuple_list!(cmplog_observer),
-    );
+        )?
+        // ,
+        // tuple_list!(cmplog_observer),
+    // )
+    ;
 
     // The actual target run starts here.
     // Call LLVMFUzzerInitialize() if present.
@@ -145,26 +176,45 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
         println!("Warning: LLVMFuzzerInitialize failed with -1");
     }
 
+
     // In case the corpus is empty (on first run), reset
     if state.must_load_initial_inputs() {
         state
             .load_initial_inputs(&mut fuzzer, &mut executor, &mut restarting_mgr, corpus_dirs)
-            .unwrap_or_else(|_| panic!("Failed to load initial corpus at {corpus_dirs:?}"));
+            .unwrap_or_else(|s| 
+                            {
+                                use libafl_bolts::Error;
+                                match s {
+                                    Error::Serialize(st, bt) => {
+                                        println!("{st} {bt:?}");
+                                    }
+                                    _ => {}
+                                }
+                                panic!("Failed to load initial corpus at {corpus_dirs:?}");
+                            }
+                            );
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
 
     // Setup a tracing stage in which we log comparisons
-    let tracing = ShadowTracingStage::new(&mut executor);
+    // let tracing = ShadowTracingStage::new(&mut executor);
 
     // Setup a randomic Input2State stage
-    let i2s = StdMutationalStage::new(StdScheduledMutator::new(tuple_list!(I2SRandReplace::new())));
+    // let i2s = StdMutationalStage::new(StdScheduledMutator::new(tuple_list!(I2SRandReplace::new())));
 
     // Setup a basic mutator
-    let mutator = StdScheduledMutator::new(havoc_mutations());
+    let mutator = StdScheduledMutator::with_max_stack_pow(
+            tuple_list!(
+                TreeSpliceMutator::new(&context),
+                TreeSpliceMutator::new(&context),
+                TreeSpliceMutator::new(&context),
+            ),
+            2,
+        );
     let mutational = StdMutationalStage::new(mutator);
 
     // The order of the stages matter!
-    let mut stages = tuple_list!(tracing, i2s, mutational);
+    let mut stages = tuple_list!(mutational);
     println!("To fuzz_loop");
 
     fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut restarting_mgr)?;

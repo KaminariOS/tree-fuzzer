@@ -1,5 +1,5 @@
 [package]
-name = "tree-fuzzer-json"
+name = "tree-fuzzer-json-nautilus"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,10 +9,10 @@ edition = "2021"
 tree-sitter-json = "0.20.2"
 tree-fuzzer = { path = "../tree-fuzzer" }
 # test_serde = { path = "./fuzz" }
-libafl = "0.11.2"
-libafl_targets = { version = "0.11.2", features = [ "sancov_cmplog", "libfuzzer", "libfuzzer_no_link_main", "sancov_8bit", "observers"] }
+libafl = { path = "../../../LibAFL/libafl/", features = ["default", "nautilus"] }
+libafl_targets = { path = "../../../LibAFL/libafl_targets", features = ["sancov_pcguard_edges", "sancov_cmplog", "libfuzzer", "libfuzzer_no_link_main"] }
 mimalloc = { version = "*", default-features = false }
-libafl_bolts = "0.11.2"
+libafl_bolts = { path =  "../../../LibAFL/libafl_bolts" }
 env_logger = "0.11.3"
 
 [lib]

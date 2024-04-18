@@ -22,6 +22,10 @@ tree-fuzzer = { path = "../../tree-fuzzer/" }
 # doc = false
 # bench = false
 
+[[bin]]
+name = "triage"
+path = "src/triage.rs"
+
 [profile.release]
 debug = true
 

@@ -53,7 +53,7 @@ impl Branches {
             // println!("Branches {}", &String::from_utf8_lossy(&text));
             let mut nodes = vec![tree.root_node()];
             while !nodes.is_empty() {
-                dbg!();
+                // dbg!();
                 let mut children = Vec::with_capacity(nodes.len()); // guesstimate
                 for node in nodes {
                     branches
@@ -84,7 +84,7 @@ impl Branches {
         // dbg!("Adding tree");
             let mut nodes = vec![tree.root_node()];
             while !nodes.is_empty() {
-                dbg!();
+                // dbg!();
                 let mut children = Vec::with_capacity(nodes.len()); // guesstimate
                 for node in nodes {
                     let slot = self.0
@@ -408,6 +408,7 @@ impl TreeMetaData {
     }
 
     fn delete_node(&mut self, _text: &[u8], tree: &Tree, ctx: &TreeContext) -> (usize, Vec<u8>, isize) {
+        dbg!("deleting");
         let chaotic = ctx.rng.borrow_mut().gen_range(0..100) < self.chaos;
         if chaotic {
             let node = self.pick_node(tree, ctx);
@@ -420,13 +421,14 @@ impl TreeMetaData {
         }
         let mut node = nodes.get(self.pick_idx(&nodes, ctx)).unwrap();
         while !self.node_types.optional_node(node) {
-            dbg!("Delete");
+            // dbg!("Delete");
             node = nodes.get(self.pick_idx(&nodes, ctx)).unwrap();
         }
         (node.id(), Vec::new(), Self::delta(*node, &[]))
     }
 
     fn splice_node(&mut self, text: &[u8], tree: &Tree, ctx: &TreeContext) -> (usize, Vec<u8>, isize) {
+        dbg!("splicing");
         let mut chaotic = ctx.rng.borrow_mut().gen_range(0..100) < self.chaos;
 
         let mut node = tree.root_node();
@@ -441,7 +443,7 @@ impl TreeMetaData {
                 println!("text: {}; branches :{:?} ", node.kind(), String::from_utf8(text.to_vec()));
                 chaotic = true;
             }
-            dbg!("candidates");
+            // dbg!("candidates");
             node = self.pick_node(tree, ctx);
             candidates = if chaotic {
                 let kind_idx = ctx.rng.borrow_mut().gen_range(0..self.kinds.0.len());
@@ -464,7 +466,7 @@ impl TreeMetaData {
         // Try to avoid not mutating
         let node_text = &text[node.byte_range()];
         while candidates.len() > 1 && candidate == &node_text {
-            dbg!("candidates");
+            // dbg!("candidates");
             let idx = ctx.rng.borrow_mut().gen_range(0..candidates.len());
             candidate = candidates.get(idx).unwrap();
         }
